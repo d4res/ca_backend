@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../ca_frontend"
+		},
+		{
+			"path": "../tmp_test"
+		}
+	],
+	"settings": {}
+}
