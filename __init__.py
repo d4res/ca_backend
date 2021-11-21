@@ -1,6 +1,8 @@
 import os
 from flask import Flask
 from . import db
+from . import auth
+from . import ca
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
@@ -31,9 +33,8 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    from . import auth
-
     app.register_blueprint(auth.auth)
+    app.register_blueprint(ca.ca)
 
     app.teardown_appcontext(db.close_db)
     app.cli.add_command(db.init_db)
