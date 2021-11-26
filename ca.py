@@ -42,8 +42,37 @@ def getcert():
     return json.jsonify({"cert": cert.pem.decode()})
 
 
+# 下载证书
+@ca.route("/download", methods=["POST"])
+@jwt_required(locations=["cookies"])
+def download():
+    data = json.loads(request.get_data().decode())
+    user = get_jwt_identity()
+    if data["serial"] != "":  # 通过序列号进行查找
+        serial = data["serial"]
+        sql = "select cert from cert where serial = %s"
+        with db.con_db() as DB:
+            with DB.cursor() as c:
+                ret = c.execute(sql, serial)
+                if ret != 0:
+                    res = c.fetchone()[0]
+                    return json.jsonify({"error": 0, "msg": "success", "cert": res})
+                else:
+                    return json.jsonify({"error": 1, "msg": "没有与序列号对应的证书"})
+    else:  # 通过已经登录的用户名进行查找
+        with db.con_db() as DB:
+            with DB.cursor() as c:
+                sql = "select cert from cert where username = %s"
+                ret = c.execute(sql, user)
+                if ret != 0:
+                    res = c.fetchone()[0]
+                    return json.jsonify({"error": 0, "msg": "success", "cert": res})
+                else:
+                    return json.jsonify({"error": 1, "msg": "用户暂未注册证书"})
+
+
 # 获取证书相关信息
-@ca.route("/cerinfo", methods=["POST"])
+@ca.route("/info", methods=["POST"])
 @jwt_required(locations=["cookies"])
 def info():
     raise NotImplementedError
