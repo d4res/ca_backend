@@ -75,7 +75,29 @@ def download():
 @ca.route("/info", methods=["POST"])
 @jwt_required(locations=["cookies"])
 def info():
-    raise NotImplementedError
+    data = json.loads(request.get_data().decode())
+    user = get_jwt_identity()
+    if data["serial"] != "":  # 通过序列号进行查找
+        serial = data["serial"]
+        sql = "select cert from cert where serial = %s"
+        with db.con_db() as DB:
+            with DB.cursor() as c:
+                ret = c.execute(sql, serial)
+                if ret != 0:
+                    res = c.fetchone()[0]
+                else:
+                    return json.jsonify({"error": 1, "msg": "没有与序列号对应的证书"})
+    else:  # 通过已经登录用户进行查找
+        with db.con_db() as DB:
+            with DB.cursor() as c:
+                sql = "select cert from cert where username = %s"
+                ret = c.execute(sql, user)
+                if ret != 0:
+                    res = c.fetchone()[0]
+                else:
+                    return json.jsonify({"error": 1, "msg": "用户暂未注册证书"})
+    cert = x509.cert(res.encode())
+    return json.jsonify(cert.info())
 
 
 # 验证证书

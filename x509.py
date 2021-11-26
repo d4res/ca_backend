@@ -1,4 +1,4 @@
-from Crypto.PublicKey import RSA
+from Crypto import PublicKey
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.x509.oid import NameOID
@@ -29,6 +29,27 @@ class cert:
         self.raw_obj = self.csr2cer(csr, private_key)
         self.pem = self.raw_obj.public_bytes(serialization.Encoding.PEM)
         self.serial = self.raw_obj.serial_number
+
+    def __init__(self, pem: bytes) -> None:
+        self.raw_obj = x509.load_pem_x509_certificate(pem)
+        self.pem = pem.decode()
+        self.serial = self.raw_obj.serial_number
+
+    def info(self):
+        cert = self.raw_obj
+        serial = cert.serial_number
+        pub_key = (
+            cert.public_key()
+            .public_bytes(
+                serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            .decode()
+        )
+        subject = cert.subject
+        subjectName = {n.rfc4514_attribute_name: n.value for n in subject}
+
+        return {"serial": serial, "pub_key": pub_key, "subjectName": subjectName}
 
     def csr2cer(self, csr: bytes, private_key: bytes) -> Certificate:
         csr = x509.load_pem_x509_csr(csr)
