@@ -42,6 +42,7 @@ with open("./priv_keys/test.pem", "rb") as key_file:
         password=None,
     )
 
+pub_key = private_key.public_key()
 print(private_key)
 builder = x509.CertificateBuilder()
 builder = builder.subject_name(csr.subject)

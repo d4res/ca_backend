@@ -16,20 +16,20 @@ import os
 
 ca = Blueprint("ca", __name__, url_prefix="/ca")
 
+# with open(os.path.join(current_app.config["CWD"], "priv_keys", "test.pem"), "rb") as f:
+#     private_key = f.read()
+
+with open(os.path.join("ca_backend", "priv_keys", "test.pem"), "rb") as f:
+    private_key = f.read()
 
 # 根据传入的csr文件，生成ca签名好的证书文件
 @ca.route("/getcert", methods=["POST"])
 @jwt_required(locations=["cookies"])
 def getcert():
-
-    with open(
-        os.path.join(current_app.config["CWD"], "priv_keys", "test.pem"), "rb"
-    ) as f:
-        private_key = f.read()
     data = json.loads(request.get_data().decode())
     csr = data["csr"]
     user = get_jwt_identity()
-    cert = x509.cert(csr.encode(), private_key)
+    cert = x509.Cert(csr.encode(), private_key)
     sql = "insert into cert values(%s, %s, %s)"
     print(cert.pem)
     with db.con_db() as DB:
@@ -104,4 +104,10 @@ def info():
 @ca.route("/vrfy", methods=["POST"])
 @jwt_required(locations=["cookies"])
 def vrfy():
-    raise NotImplementedError
+    data = json.loads(request.get_data().decode())
+    cert = x509.Cert(data["cert"].encode())
+    ret = cert.vrfy(private_key)
+    if ret == True:
+        return json.jsonify({"error": 0, "msg": "success"})
+    else:
+        return json.jsonify({"error": 1, "msg": "failed"})
