@@ -29,9 +29,18 @@ def getcert():
     data = json.loads(request.get_data().decode())
     csr = data["csr"]
     user = get_jwt_identity()
-    cert = x509.Cert(csr.encode(), private_key)
+    try:
+        cert = x509.Cert(csr.encode(), private_key)
+    except:
+        return json.jsonify({"error": 1, "msg": "pem format error"})
+    sql = "select * from cert where username = %s"
+    with db.con_db() as DB:
+        with DB.cursor() as c:
+            ret = c.execute(sql, user)
+            if ret != 0:
+                return json.jsonify({"error": 1, "msg": "user already exist"})
+
     sql = "insert into cert values(%s, %s, %s)"
-    print(cert.pem)
     with db.con_db() as DB:
         with DB.cursor() as c:
             # TODO: return check

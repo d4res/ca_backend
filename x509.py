@@ -28,15 +28,14 @@ today = datetime.datetime.today()
 class Cert:
     # 从csr文件创建证书
     # 使用我们自己的私钥进行签名
-    def __init__(self, csr: bytes, private_key: bytes):
-        self.raw_obj = self.csr2cer(csr, private_key)
-        self.pem = self.raw_obj.public_bytes(serialization.Encoding.PEM)
-        self.serial = self.raw_obj.serial_number
 
-    # 从pem格式bytes中直接获得证书对象
-    def __init__(self, pem: bytes):
-        self.raw_obj = x509.load_pem_x509_certificate(pem)
-        self.pem = pem.decode()
+    def __init__(self, pem: bytes, private_key=None):
+        if private_key == None:
+            self.raw_obj = x509.load_pem_x509_certificate(pem)
+            self.pem = pem.decode()
+        else:
+            self.raw_obj = self.csr2cer(pem, private_key)
+            self.pem = self.raw_obj.public_bytes(serialization.Encoding.PEM)
         self.serial = self.raw_obj.serial_number
 
     # 获取证书的相关信息
