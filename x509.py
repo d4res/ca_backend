@@ -53,7 +53,7 @@ class Cert:
         subject = cert.subject
         subjectName = {n.rfc4514_attribute_name: n.value for n in subject}
 
-        return {"serial": serial, "pub_key": pub_key, "subjectName": subjectName}
+        return {"serial": str(serial), "pub_key": pub_key, "subjectName": subjectName}
 
     # 从csr创建证书
     def csr2cer(self, csr: bytes, private_key: bytes) -> Certificate:

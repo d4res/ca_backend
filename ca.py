@@ -105,13 +105,12 @@ def info():
                     res = c.fetchone()[0]
                 else:
                     return json.jsonify({"error": 1, "msg": "用户暂未注册证书"})
-    cert = x509.cert(res.encode())
+    cert = x509.Cert(res.encode())
     return json.jsonify(cert.info())
 
 
-# 验证证书
+# 验证证书, 无需要验证
 @ca.route("/vrfy", methods=["POST"])
-@jwt_required(locations=["cookies"])
 def vrfy():
     data = json.loads(request.get_data().decode())
     cert = x509.Cert(data["cert"].encode())
