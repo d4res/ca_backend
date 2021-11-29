@@ -33,18 +33,16 @@ def getcert():
         cert = x509.Cert(csr.encode(), private_key)
     except:
         return json.jsonify({"error": 1, "msg": "pem format error"})
-    sql = "select * from cert where username = %s"
-    with db.con_db() as DB:
-        with DB.cursor() as c:
-            ret = c.execute(sql, user)
-            if ret != 0:
-                return json.jsonify({"error": 1, "msg": "user already exist"})
 
-    sql = "insert into cert values(%s, %s, %s)"
+    sql_search = "select * from cert where username = %s"
+    sql_insert = "insert into cert values(%s, %s, %s)"
     with db.con_db() as DB:
         with DB.cursor() as c:
             # TODO: return check
-            ret = c.execute(sql, [user, cert.serial, cert.pem.decode()])
+            ret = c.execute(sql_search, user)
+            if ret != 0:
+                return json.jsonify({"error": 1, "msg": "user already exist"})
+            c.execute(sql_insert, [user, cert.serial, cert.pem.decode()])
         DB.commit()
 
     # cert = x509.csr2cer(csr.encode(), private_key)
@@ -119,3 +117,19 @@ def vrfy():
         return json.jsonify({"error": 0, "msg": "success"})
     else:
         return json.jsonify({"error": 1, "msg": "failed"})
+
+
+# TODO: check
+@ca.route("/getpub", methods=["POST"])
+def getpub():
+    data = json.loads(request.get_data().decode())
+    serial = data["serial"]
+    with db.con_db() as DB:
+        with DB.cursor() as c:
+            sql = "select cert from cert where serial=%s"
+            ret = c.execute(sql, serial)
+            if ret == 0:
+                return json.jsonify({"error": 1, "msg": "fail"})
+            else:
+                res = c.fetchone()[0]
+                return json.jsonify({"error": 0, "pub_key": res})
