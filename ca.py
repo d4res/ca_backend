@@ -1,5 +1,7 @@
 from flask import Blueprint, request, json, current_app
+from flask.helpers import make_response
 from flask_jwt_extended.utils import get_jwt
+from werkzeug.utils import send_file, send_from_directory
 
 from . import x509
 from . import db
@@ -120,16 +122,38 @@ def vrfy():
 
 
 # TODO: check
+# 根据用户名获取公钥
 @ca.route("/getpub", methods=["POST"])
 def getpub():
     data = json.loads(request.get_data().decode())
-    serial = data["serial"]
+    username = data["username"]
     with db.con_db() as DB:
         with DB.cursor() as c:
-            sql = "select cert from cert where serial=%s"
-            ret = c.execute(sql, serial)
+            sql = "select cert from cert where username=%s"
+            ret = c.execute(sql, username)
             if ret == 0:
                 return json.jsonify({"error": 1, "msg": "fail"})
             else:
                 res = c.fetchone()[0]
-                return json.jsonify({"error": 0, "pub_key": res})
+                cert = x509.Cert(res.encode())
+                pub_key = cert.info()
+                return json.jsonify(
+                    {"error": 0, "username": username, "public_key": pub_key["pub_key"]}
+                )
+
+
+# 撤销证书
+@ca.route("/revoke", methods=["POST"])
+@jwt_required(locations=["cookies"])
+def revoke():
+    data = json.loads(request.get_data().decode())
+    serial = data["serial"]
+    with db.con_db() as DB:
+        with DB.cursor() as c:
+            sql = "select * from cert where serial=%s"
+            ret = c.execute(sql, serial)
+            if ret == 0:
+                return json.jsonify({"error": 1, "msg": "cert not found"})
+            sql = "delete from cert where serial = %s"
+            ret = c.execute(sql, serial)
+            return json.jsonify({"error": 0, "msg": "success"})
