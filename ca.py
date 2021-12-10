@@ -1,6 +1,7 @@
 from flask import Blueprint, request, json, current_app
 from flask.helpers import make_response
 from flask_jwt_extended.utils import get_jwt
+from pymysql.cursors import DictCursor
 from werkzeug.utils import send_file, send_from_directory
 
 from . import x509
@@ -43,7 +44,7 @@ def getcert():
             # TODO: return check
             ret = c.execute(sql_search, user)
             if ret != 0:
-                return json.jsonify({"error": 1, "msg": "user already exist"})
+                return json.jsonify({"error": 2, "msg": "cert already exist"})
             c.execute(sql_insert, [user, cert.serial, cert.pem.decode()])
         DB.commit()
 
@@ -104,7 +105,7 @@ def info():
                 if ret != 0:
                     res = c.fetchone()[0]
                 else:
-                    return json.jsonify({"error": 1, "msg": "用户暂未注册证书"})
+                    return json.jsonify({"error": 2, "msg": "用户暂未注册证书"})
     cert = x509.Cert(res.encode())
     return json.jsonify(cert.info())
 
@@ -127,18 +128,39 @@ def vrfy():
 def getpub():
     data = json.loads(request.get_data().decode())
     username = data["username"]
+    flag = data["flag"]
     with db.con_db() as DB:
         with DB.cursor() as c:
             sql = "select cert from cert where username=%s"
             ret = c.execute(sql, username)
             if ret == 0:
-                return json.jsonify({"error": 1, "msg": "fail"})
+                return json.jsonify(
+                    {
+                        "success": True,
+                        "code": 20000,
+                        "message": "成功",
+                        "data": {"error": 1, "msg": "fail"},
+                    }
+                )
             else:
                 res = c.fetchone()[0]
                 cert = x509.Cert(res.encode())
-                pub_key = cert.info()
+                pub_key = cert.info()["pub_key"]
+                if flag == 0:
+                    pub_key = pub_key.replace("-----BEGIN PUBLIC KEY-----", "").replace(
+                        "-----END PUBLIC KEY-----", ""
+                    )
                 return json.jsonify(
-                    {"error": 0, "username": username, "public_key": pub_key["pub_key"]}
+                    {
+                        "success": True,
+                        "code": 20000,
+                        "message": "成功",
+                        "data": {
+                            "error": 0,
+                            "username": username,
+                            "public_key": pub_key,
+                        },
+                    }
                 )
 
 
@@ -148,12 +170,45 @@ def getpub():
 def revoke():
     data = json.loads(request.get_data().decode())
     serial = data["serial"]
+    username = get_jwt_identity()
+
     with db.con_db() as DB:
         with DB.cursor() as c:
-            sql = "select * from cert where serial=%s"
+            sql = "select username from cert where serial=%s"
             ret = c.execute(sql, serial)
             if ret == 0:
-                return json.jsonify({"error": 1, "msg": "cert not found"})
+                return json.jsonify({"error": 2, "msg": "cert not found"})
+            res = c.fetchone()[0]
+            if res != username and username != "admin":
+                return json.jsonify(
+                    {"error": 1, "msg": "only admin can revoke other user's cert"}
+                )
             sql = "delete from cert where serial = %s"
             ret = c.execute(sql, serial)
-            return json.jsonify({"error": 0, "msg": "success"})
+        DB.commit()
+    return json.jsonify({"error": 0, "msg": "success"})
+
+
+@ca.route("/usrinfo", methods=["POST"])
+@jwt_required(locations=["cookies"])
+def usrinfo():
+
+    username = get_jwt_identity()
+    resp = {"error": 0, "username": username, "serial": "", "role": "普通用户"}
+    if username == "admin":
+        resp["role"] = "管理员"
+        return json.jsonify(resp)
+
+    with db.con_db() as DB:
+        with DB.cursor(DictCursor) as c:
+            sql = "select username from user where username = %s"
+            ret = c.execute(sql, username)
+            if ret == 0:
+                return json.jsonify({"error": 1, "msg": "username not found"})
+            sql = "select username, serial from cert where username=%s"
+            ret = c.execute(sql, username)
+            if ret != 0:
+                res = c.fetchall()[0]
+                resp["serial"] = res["serial"]
+                return json.jsonify(resp)
+            return json.jsonify(resp)

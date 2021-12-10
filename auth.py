@@ -30,8 +30,8 @@ def register():
     iv = rsa.decrypt(ct_iv)
     username = aes.decrypt(key, iv, ct_username)
     password = aes.decrypt(key, iv, ct_password)
-    print(username)
-    print(password)
+    # print(username)
+    # print(password)
     password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     # TODO: pay attention to the sql injection.
     # addtion: evidence may show that pymysql will help us do the string escape
