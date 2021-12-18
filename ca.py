@@ -114,7 +114,10 @@ def info():
 @ca.route("/vrfy", methods=["POST"])
 def vrfy():
     data = json.loads(request.get_data().decode())
-    cert = x509.Cert(data["cert"].encode())
+    try:
+        cert = x509.Cert(data["cert"].encode())
+    except:
+        return json.jsonify({"error": 2, "msg": "cert format error"})
     ret = cert.vrfy(private_key)
     if ret == True:
         return json.jsonify({"error": 0, "msg": "success"})
@@ -187,6 +190,20 @@ def revoke():
             ret = c.execute(sql, serial)
         DB.commit()
     return json.jsonify({"error": 0, "msg": "success"})
+
+
+@ca.route("/listuser", methods=["POST"])
+@jwt_required(locations=["cookies"])
+def listuser():
+    username = get_jwt_identity()
+    if username != "admin":
+        return json.jsonify({"error": 1, "msg": "你不是管理员"})
+    sql = "select username, serial from cert"
+    with db.con_db() as DB:
+        with DB.cursor(DictCursor) as c:
+            c.execute(sql)
+            res = c.fetchall()
+    return json.jsonify(res)
 
 
 @ca.route("/usrinfo", methods=["POST"])

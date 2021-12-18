@@ -53,7 +53,13 @@ class Cert:
         subject = cert.subject
         subjectName = {n.rfc4514_attribute_name: n.value for n in subject}
 
-        return {"serial": str(serial), "pub_key": pub_key, "subjectName": subjectName}
+        return {
+            "serial": str(serial),
+            "pub_key": pub_key,
+            "subjectName": subjectName,
+            "start": str(cert.not_valid_before),
+            "end": str(cert.not_valid_after),
+        }
 
     # 从csr创建证书
     def csr2cer(self, csr: bytes, private_key: bytes) -> Certificate:
@@ -89,4 +95,8 @@ class Cert:
         except:
             return False
         else:
-            return True
+            today = datetime.datetime.today()
+            if today > cert.not_valid_before and today < cert.not_valid_after:
+                return True
+            else:
+                return False
